@@ -29,6 +29,14 @@ db_drop_and_create_all()
         or appropriate status code indicating reason for failure
 '''
 
+@app.route('/drinks')
+def get_drinks():
+    drinks = Drink.query.order_by(Drink.id).all()
+    return jsonify({
+        "success": True, 
+        "drinks": [drink.short() for drink in drinks]
+    })
+
 
 '''
 @TODO implement endpoint
@@ -38,6 +46,15 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "drinks": drinks} where drinks is the list of drinks
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks-detail')
+@requires_auth('get:drinks-detail')
+def get_drinks_detail(jwt):
+    drinks = Drink.query.order_by(Drink.id).all()
+
+    return jsonify({
+        "success": True, 
+        "drinks": [drink.long() for drink in drinks]
+    })
 
 
 '''
@@ -49,7 +66,24 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
+@app.route('/drinks-detail', methods=['POST'])
+@requires_auth('post:drinks')
+def create_drink(jwt):
+    data = request.get_json()
 
+    if 'title' and 'recipe' not in data:
+        abort(422)
+    
+    drink_title = data['title']
+    drink_recipe = data['recipe']
+
+    drink = Drink(title=drink_title, recipe=drink_recipe)
+    drink.insert()
+
+    return jsonify({
+        "success": True, 
+        "drinks": [drink.long()]
+    })
 
 '''
 @TODO implement endpoint
@@ -63,6 +97,28 @@ db_drop_and_create_all()
         or appropriate status code indicating reason for failure
 '''
 
+@app.route('/drinks/<drink_id>', methods=['PATCH'])
+@requires_auth('patch:drinks')
+def patch_drinks(drink_id, jwt):
+    drink = Drink.query.get(drink_id)
+    if drink is None:
+        abort(404)
+
+    data = request.get_json()
+
+    if 'title' in data:
+        drink.title = data['title']
+
+    if 'recipe' in data:
+        drink.recipe = json.dumps(data['recipe'])
+
+    drink.update()
+
+    return jsonify({
+        "success": True, 
+        "drinks": [drink.long()]
+    })
+
 
 '''
 @TODO implement endpoint
@@ -74,6 +130,21 @@ db_drop_and_create_all()
     returns status code 200 and json {"success": True, "delete": id} where id is the id of the deleted record
         or appropriate status code indicating reason for failure
 '''
+
+@app.route('/drinks/<drink_id>', methods=['DELETE'])
+@requires_auth('delete:drinks')
+def delete_drink(jwt, drink_id):
+    drink = Drink.query.get(drink_id)
+    if drink is None:
+        abort(404)
+
+    drink.delete()
+
+    return jsonify({
+        "success": True, 
+        "delete": drink_id
+    })
+
 
 
 # Error Handling
