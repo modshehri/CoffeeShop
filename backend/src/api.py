@@ -32,6 +32,7 @@ db_drop_and_create_all()
 @app.route('/drinks')
 def get_drinks():
     drinks = Drink.query.order_by(Drink.id).all()
+    
     return jsonify({
         "success": True, 
         "drinks": [drink.short() for drink in drinks]
@@ -48,7 +49,7 @@ def get_drinks():
 '''
 @app.route('/drinks-detail')
 @requires_auth('get:drinks-detail')
-def get_drinks_detail(jwt):
+def get_drinks_detail():
     drinks = Drink.query.order_by(Drink.id).all()
 
     return jsonify({
@@ -66,16 +67,16 @@ def get_drinks_detail(jwt):
     returns status code 200 and json {"success": True, "drinks": drink} where drink an array containing only the newly created drink
         or appropriate status code indicating reason for failure
 '''
-@app.route('/drinks-detail', methods=['POST'])
+@app.route('/drinks', methods=['POST'])
 @requires_auth('post:drinks')
-def create_drink(jwt):
+def create_drink():
     data = request.get_json()
 
     if 'title' and 'recipe' not in data:
         abort(422)
     
     drink_title = data['title']
-    drink_recipe = data['recipe']
+    drink_recipe = json.dumps(data['recipe'])
 
     drink = Drink(title=drink_title, recipe=drink_recipe)
     drink.insert()
@@ -99,7 +100,7 @@ def create_drink(jwt):
 
 @app.route('/drinks/<drink_id>', methods=['PATCH'])
 @requires_auth('patch:drinks')
-def patch_drinks(drink_id, jwt):
+def patch_drinks(drink_id):
     drink = Drink.query.get(drink_id)
     if drink is None:
         abort(404)
@@ -133,7 +134,7 @@ def patch_drinks(drink_id, jwt):
 
 @app.route('/drinks/<drink_id>', methods=['DELETE'])
 @requires_auth('delete:drinks')
-def delete_drink(jwt, drink_id):
+def delete_drink(drink_id):
     drink = Drink.query.get(drink_id)
     if drink is None:
         abort(404)
@@ -190,9 +191,9 @@ def notFound(error):
     error handler should conform to general task above
 '''
 @app.errorhandler(AuthError)
-def notFound(error):
-    return jsonify({
-        "success": False,
-        "error": AuthError,
-        "message": "Authentecation Error"
-    }), AuthError
+def authorization_error(error):
+    error.error["success"] = False
+    response = jsonify(error.error)
+    response.status_code = error.status_code
+
+    return response
